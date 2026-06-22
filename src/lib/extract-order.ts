@@ -9,6 +9,8 @@ import {
   type ProcessedOrderFields,
 } from "./post-process.js";
 import { logInfo } from "./logger.js";
+import { withRetry } from "./retry.js";
+import { buildOrderExtractionMessages } from "./prompts/order-extraction-prompt.js";
 
 const client = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -60,48 +62,25 @@ export async function extractOrder(
     inputCharacters: rawText.length,
   });
 
-  const completion = await client.chat.completions.create({
-    model,
-    temperature: 0.1,
-    response_format: {
-      type: "json_object",
+  const messages = buildOrderExtractionMessages(rawText);
+
+  const completion = await withRetry(
+    "openrouter.chat.completions.create",
+    () =>
+      client.chat.completions.create({
+        model,
+        temperature: 0.1,
+        response_format: {
+          type: "json_object",
+        },
+        messages,
+      }),
+    {
+      maxAttempts: 3,
+      baseDelayMs: 500,
+      maxDelayMs: 5000,
     },
-    messages: [
-      {
-        role: "system",
-        content: `
-      You extract structured order data from operational messages.
-      Return only valid JSON. Do not include markdown. Do not include explanations outside the JSON.
-      The JSON object must have exactly these fields:
-      {
-        "orderNumber": string | null,
-        "aep": string | null,
-        "acres": number | null,
-        "validationStatus": "Passed" | "Failed" | "Unknown",
-        "submittedAt": string | null,
-        "confidence": number,
-        "missingFields": string[],
-        "notes": string
-      }
-      
-      Rules:
-      - Order number should only be the numeric part. For example, "Order-12345 becomes 12345". 
-      - Return only data supported by the input.
-      - Do not invent missing fields.
-      - If a field is missing, use null when allowed.
-      - If validation status is unclear, use "Unknown".
-      - submittedAt must be ISO 8601 only if a timestamp is explicitly present.
-      - Confidence must be a number between 0 and 1.
-      - missingFields should include any missing or unclear fields.
-      - Keep notes brief and do not need to mention successes, only outliers.
-      `.trim(),
-      },
-      {
-        role: "user",
-        content: rawText,
-      },
-    ],
-  });
+  );
 
   logInfo("openrouter_usage", {
     model,
