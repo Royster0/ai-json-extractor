@@ -8,6 +8,7 @@ import {
   postProcessOrderFields,
   type ProcessedOrderFields,
 } from "./post-process.js";
+import { logInfo } from "./logger.js";
 
 const client = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -52,6 +53,12 @@ export async function extractOrder(
   }
 
   const model = process.env.OPENROUTER_MODEL ?? "openrouter/owl-alpha";
+  const startedAt = Date.now();
+
+  logInfo("order_extraction_started", {
+    model,
+    inputCharacters: rawText.length,
+  });
 
   const completion = await client.chat.completions.create({
     model,
@@ -96,6 +103,13 @@ export async function extractOrder(
     ],
   });
 
+  logInfo("openrouter_usage", {
+    model,
+    promptTokens: completion.usage?.prompt_tokens,
+    completionTokens: completion.usage?.completion_tokens,
+    totalTokens: completion.usage?.total_tokens,
+  });
+
   const content = completion.choices[0]?.message?.content;
 
   if (!content) {
@@ -104,6 +118,15 @@ export async function extractOrder(
 
   const json = parseJsonContent(content);
   const extraction = validateExtraction(json);
+  const processed = postProcessOrderFields(extraction);
 
-  return postProcessOrderFields(extraction);
+  logInfo("order_extraction_completed", {
+    model,
+    durationMs: Date.now() - startedAt,
+    confidence: processed.confidence,
+    missingFields: processed.missingFields,
+    uploadType: processed.uploadType,
+  });
+
+  return processed;
 }
