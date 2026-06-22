@@ -78,6 +78,7 @@ export async function extractOrder(
       }
       
       Rules:
+      - Order number should only be the numeric part. For example, "Order-12345 becomes 12345". 
       - Return only data supported by the input.
       - Do not invent missing fields.
       - If a field is missing, use null when allowed.
