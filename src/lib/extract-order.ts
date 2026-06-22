@@ -8,9 +8,11 @@ import {
   postProcessOrderFields,
   type ProcessedOrderFields,
 } from "./post-process.js";
+import { buildOrderExtractionMessages } from "./prompts/order-extraction-prompt.js";
 import { logInfo } from "./logger.js";
 import { withRetry } from "./retry.js";
-import { buildOrderExtractionMessages } from "./prompts/order-extraction-prompt.js";
+import { waitForOpenRouterRateLimitSlot } from "./rate-limit.js";
+import { getUsageSnapshot } from "./usage.js";
 
 const client = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -66,27 +68,34 @@ export async function extractOrder(
 
   const completion = await withRetry(
     "openrouter.chat.completions.create",
-    () =>
-      client.chat.completions.create({
+    async () => {
+      await waitForOpenRouterRateLimitSlot(
+        "openrouter.chat.completions.create",
+      );
+
+      return client.chat.completions.create({
         model,
         temperature: 0.1,
+        max_tokens: 500,
         response_format: {
           type: "json_object",
         },
         messages,
-      }),
+      });
+    },
     {
-      maxAttempts: 3,
-      baseDelayMs: 500,
-      maxDelayMs: 5000,
+      maxAttempts: 4,
+      baseDelayMs: 750,
+      maxDelayMs: 8000,
+      maxRetryAfterMs: 60_000,
     },
   );
 
+  const usage = getUsageSnapshot(completion.usage);
+
   logInfo("openrouter_usage", {
     model,
-    promptTokens: completion.usage?.prompt_tokens,
-    completionTokens: completion.usage?.completion_tokens,
-    totalTokens: completion.usage?.total_tokens,
+    ...usage,
   });
 
   const content = completion.choices[0]?.message?.content;
@@ -105,6 +114,8 @@ export async function extractOrder(
     confidence: processed.confidence,
     missingFields: processed.missingFields,
     uploadType: processed.uploadType,
+    totalTokens: usage.totalTokens,
+    costCredits: usage.costCredits,
   });
 
   return processed;
