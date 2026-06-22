@@ -86,7 +86,7 @@ export async function extractOrder(
       - submittedAt must be ISO 8601 only if a timestamp is explicitly present.
       - Confidence must be a number between 0 and 1.
       - missingFields should include any missing or unclear fields.
-      - Keep notes brief.
+      - Keep notes brief and do not need to mention successes, only outliers.
       `.trim(),
       },
       {
