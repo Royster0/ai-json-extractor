@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "tsx src/main.ts",
     "extract": "tsx src/main.ts",
-    "check": "tsx --noEmit"
+    "stream": "tsx src/stream.ts",
+    "tool-demo": "tsx src/tool-demo.ts",
+    "check": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",

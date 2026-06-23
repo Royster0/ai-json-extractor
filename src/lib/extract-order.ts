@@ -1,5 +1,5 @@
 import "dotenv/config";
-import OpenAI from "openai";
+import { openRouter, getOpenRouterModel } from "./openrouter.js";
 import {
   OrderFieldsSchema,
   type OrderFields,
@@ -13,15 +13,6 @@ import { logInfo } from "./logger.js";
 import { withRetry } from "./retry.js";
 import { waitForOpenRouterRateLimitSlot } from "./rate-limit.js";
 import { getUsageSnapshot } from "./usage.js";
-
-const client = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-  defaultHeaders: {
-    "HTTP-Referer": process.env.OPENROUTER_SITE_URL ?? "http://localhost:3000",
-    "X-OpenRouter-Title": process.env.OPENROUTER_APP_NAME ?? "JSON Extractor",
-  },
-});
 
 function parseJsonContent(content: string): unknown {
   try {
@@ -56,7 +47,7 @@ export async function extractOrder(
     throw new Error("Missing OpenRouter API Key in .env");
   }
 
-  const model = process.env.OPENROUTER_MODEL ?? "openrouter/owl-alpha";
+  const model = getOpenRouterModel();
   const startedAt = Date.now();
 
   logInfo("order_extraction_started", {
@@ -73,7 +64,7 @@ export async function extractOrder(
         "openrouter.chat.completions.create",
       );
 
-      return client.chat.completions.create({
+      return openRouter.chat.completions.create({
         model,
         temperature: 0.1,
         max_tokens: 500,
