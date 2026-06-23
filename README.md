@@ -11,9 +11,13 @@ messy text → LLM extraction → JSON parsing → Zod validation → determinis
 * Uses OpenRouter’s OpenAI-compatible API
 * Extracts order data from messy text
 * Returns clean, validated JSON
-* Uses Zod for schema validation
+* Validates model output with Zod
 * Derives deterministic fields in code, such as upload type
 * Includes simple CLI usage for local testing
+* Handles retries and rate limiting
+* Tracks token usage and cost
+* Resusable prompt builders
+* Structured JSON logging
 
 ## Example Input
 
