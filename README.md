@@ -46,3 +46,7 @@ Run the extractor in terminal
 ```bash
 npm run extract -- "Order-15973 successfully started • Host: aep02 • Acres: 184.2 • Validation Results: Passed"
 ```
+
+## Todo
+* Tool calling
+* Streaming
